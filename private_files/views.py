@@ -13,6 +13,7 @@ from django.views.static import was_modified_since
 from django.utils.http import http_date, parse_http_date
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.encoding import smart_str
 
 from private_files.signals import pre_download
 
@@ -67,8 +68,8 @@ def _handle_xsendfile(request, instance, field_name):
     response = HttpResponse()
     response['Content-Type'] = mimetype
     if field_file.attachment:
-        response['Content-Disposition'] = 'attachment; filename=%s'%basename
-    response["X-Sendfile"] = field_file.path
+        response['Content-Disposition'] = 'attachment; filename=%s' % smart_str(basename)
+    response["X-Sendfile"] = smart_str(field_file.path)
     response['Content-Length'] = statobj.st_size
     return response
     
