@@ -14,7 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 from private_files.signals import pre_download
 
 if not getattr(settings, 'FILE_PROTECTION_METHOD', False):
-        raise ImproperlyConfigured('You need to set FILE_PROTECTION_METHOD in your project settings')
+    raise ImproperlyConfigured('You need to set FILE_PROTECTION_METHOD in your project settings')
 
 
 def _handle_basic(request, path, url, attachment=True):
@@ -30,7 +30,7 @@ def _handle_basic(request, path, url, attachment=True):
     response["Last-Modified"] = http_date(statobj.st_mtime)
     response["Content-Length"] = statobj.st_size
     if attachment:
-        response['Content-Disposition'] = 'attachment; filename=%s'%basename
+        response['Content-Disposition'] = 'attachment; filename=%s' % basename
     if encoding:
         response["Content-Encoding"] = encoding
     buff.close()
@@ -45,7 +45,7 @@ def _handle_nginx(request, path, url, attachment=True):
     response = HttpResponse()
     response['Content-Type'] = mimetype
     if attachment:
-        response['Content-Disposition'] = 'attachment; filename=%s'%basename
+        response['Content-Disposition'] = 'attachment; filename=%s' % basename
     response["X-Accel-Redirect"] = url
     response['Content-Length'] = statobj.st_size
     return response
@@ -59,7 +59,7 @@ def _handle_xsendfile(request, path, url, attachment=True):
     response = HttpResponse()
     response['Content-Type'] = mimetype
     if attachment:
-        response['Content-Disposition'] = 'attachment; filename=%s'%basename
+        response['Content-Disposition'] = 'attachment; filename=%s' % basename
     response["X-Sendfile"] = path
     response['Content-Length'] = statobj.st_size
     return response
