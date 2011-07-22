@@ -20,58 +20,60 @@ if not getattr(settings, 'FILE_PROTECTION_METHOD', False):
         raise ImproperlyConfigured('You need to set FILE_PROTECTION_METHOD in your project settings')
 
 
-
-
-def _handle_basic(request, instance, field_name):
-    field_file  = getattr(instance, field_name)
-    
-    mimetype, encoding = mimetypes.guess_type(field_file.path)
+def _handle_basic(request, path, url, attachment=True):
+    mimetype, encoding = mimetypes.guess_type(path)
     mimetype = mimetype or 'application/octet-stream'
-    statobj = os.stat(field_file.path)
+    statobj = os.stat(path)
     if not was_modified_since(request.META.get('HTTP_IF_MODIFIED_SINCE'),
-                              statobj.st_mtime, statobj.st_size):
+                            statobj.st_mtime, statobj.st_size):
         return HttpResponseNotModified(mimetype=mimetype)
-    basename = os.path.basename(field_file.path)
-    field_file.open()
-    response = HttpResponse(field_file.file.read(), mimetype=mimetype)
+    basename = os.path.basename(path)
+    buff = open(path)
+    response = HttpResponse(buff.read(), mimetype=mimetype)
     response["Last-Modified"] = http_date(statobj.st_mtime)
     response["Content-Length"] = statobj.st_size
-    if field_file.attachment:
+    if attachment:
         response['Content-Disposition'] = 'attachment; filename=%s'%basename
     if encoding:
         response["Content-Encoding"] = encoding
-    field_file.close()
+    buff.close()
     return response
 
-    
-def _handle_nginx(request, instance, field_name):
-    field_file  = getattr(instance, field_name)
-    basename = os.path.basename(field_file.path)
-    mimetype, encoding = mimetypes.guess_type(field_file.path)
+
+def _handle_nginx(request, path, url, attachment=True):
+    basename = os.path.basename(path)
+    mimetype, encoding = mimetypes.guess_type(path)
     mimetype = mimetype or 'application/octet-stream'
-    statobj = os.stat(field_file.path)
+    statobj = os.stat(path)
     response = HttpResponse()
     response['Content-Type'] = mimetype
-    if field_file.attachment:
+    if attachment:
         response['Content-Disposition'] = 'attachment; filename=%s'%basename
-    response["X-Accel-Redirect"] = "/%s"%unicode(field_file)
+    response["X-Accel-Redirect"] = url
     response['Content-Length'] = statobj.st_size
     return response
 
-def _handle_xsendfile(request, instance, field_name):
-    field_file  = getattr(instance, field_name)
-    basename = os.path.basename(field_file.path)
-    mimetype, encoding = mimetypes.guess_type(field_file.path)
+
+def _handle_xsendfile(request, path, url, attachment=True):
+    basename = os.path.basename(path)
+    mimetype, encoding = mimetypes.guess_type(path)
     mimetype = mimetype or 'application/octet-stream'
-    statobj = os.stat(field_file.path)
+    statobj = os.stat(path)
     response = HttpResponse()
     response['Content-Type'] = mimetype
-    if field_file.attachment:
+    if attachment:
         response['Content-Disposition'] = 'attachment; filename=%s'%basename
-    response["X-Sendfile"] = field_file.path
+    response["X-Sendfile"] = path
     response['Content-Length'] = statobj.st_size
     return response
-    
+
+
+def _handle_method(method, request, instance, field_name):
+    field_file  = getattr(instance, field_name)
+    url = "/%s" % unicode(field_file)
+    return method(request, field_file.path, url, attachment=field_file.attachment)
+
+
 METHODS = {
         'basic': _handle_basic,
         'nginx': _handle_nginx,
@@ -93,6 +95,6 @@ def get_file(request, app_label, model_name, field_name, object_id, filename):
         raise Http404("")
     if condition(request, instance):
         pre_download.send(sender = model, instance = instance, field_name = field_name, request = request)
-        return METHOD(request, instance, field_name)
+        return _handle_method(METHOD, request, instance, field_name)
     else:
         raise PermissionDenied()
